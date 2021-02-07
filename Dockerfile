@@ -1,29 +1,13 @@
-# Create image based on the Node image from dockerhub
-FROM node:latest
-
-# set DOCKERIZED
-ENV DOCKERIZED=true
-
-# Create a directory where our app will be placed
-RUN mkdir -p /usr/src/app
-
-# Change directory so that our commands run inside this new directory
-WORKDIR /usr/src/app
-
-# Copy dependency definitions
-COPY package.json /usr/src/app
-
-# Install dependecies
+# build stage
+FROM node:lts-alpine as build-stage
+WORKDIR /app
+COPY package*.json ./
 RUN npm install
-
-# Get all the code needed to run the app
-COPY . /usr/src/app
-
-# Build app sources
+COPY . .
 RUN npm run build
 
-# Expose the port the app runs in
-EXPOSE 80
-
-# Serve the app
-CMD ["npm", "start"]
+# production stage
+FROM nginx:stable-alpine as production-stage
+COPY default-heroku.conf /etc/nginx/conf.d/default.conf.template
+COPY --from=build-stage /app/dist/test-storage /usr/share/nginx/html
+CMD /bin/sh -c "envsubst < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
